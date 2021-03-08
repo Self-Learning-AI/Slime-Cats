@@ -30,7 +30,7 @@ public class Floater : MonoBehaviour
 
     void Update()
     {
-        
+        //other method is transform.rotate
         //transform.Rotate(new Vector3(0.0f, Time.deltaTime * rotationSpeed, 0.0f), Space.World);
 
         // Float up and down on the Y-Axis

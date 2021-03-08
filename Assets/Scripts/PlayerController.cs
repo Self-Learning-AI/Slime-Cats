@@ -1,49 +1,62 @@
-﻿using System.Collections;
+﻿// Written by Igor Barbosa
+
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
     [Header("Attributes")]
-    private float health = 100.0f;
+    public int armySize;
     public float damage = 10.0f;
     [Space]
 
     [Header("Movement")]
-    public float moveSpeed = 1.0f;
-    public float jumpHeight = 2.0f;
+    public float moveSpeed = 2.0f;
+    public float jumpHeight = 60.0f;
     private float vertical;     // For forwards/backwards movement
     private float horizontal;   // For left/right movement
     private float jump;         // For jump input
-    private bool canJump = true;
+    public bool canJump = true;
     private bool canMove = true;
+    public bool enemyInRange;
     [Space]
 
-    [Header("Abilities")]
-    public bool air;
-    public bool fire;
-    public bool earth;
-    public bool water;
+    [Header("Army")]
+    public int air;
+    public int fire;
+    public int earth;
+    public int water;
     [Space]
 
     [Header("Components")]
     public Rigidbody body;
     public Collider collider;
+    //public Collider colliderOuter;
     public Animator anim;
-    public AudioSource audioSource;
+    public FightSimulation fightSimulation;
+    public BouncyEffect bouncyEffect;
+    public SoundManager sounds;
+   
 
     // Start is called before the first frame update
     void Start()
     {
-        
+        anim = gameObject.GetComponent("Animator") as Animator;
     }
 
     // Fixed update is better when working with physics
     // Called a set number of times per frame
     private void FixedUpdate()
     {
+        //armySize = air + fire + earth + water;
         Move();
         Jump();
+        if (Input.GetKeyDown(KeyCode.F) && enemyInRange)
+        {
+            sounds.PlaySound("fight");
+            fightSimulation.SimulateBattle();
+        }
     }
 
     void Move()
@@ -57,9 +70,33 @@ public class PlayerController : MonoBehaviour
             Vector3 movement = new Vector3(horizontal, 0.0f, vertical);
 
             // Adds force to x and z axis to make rigid body move
-            body.AddForce(movement * moveSpeed);
+            body.AddRelativeForce(movement * moveSpeed);
+
+            // If there is movement, hop
+            if(vertical != 0.0f || horizontal != 0.0f)
+            {
+                Hop();
+            }
+
+            Vector3 newRotation = gameObject.transform.eulerAngles;
+            newRotation.y = Camera.main.transform.eulerAngles.y;
+            gameObject.transform.eulerAngles = newRotation;
+
+            // Rotate to camera view
+            // Vector3 cameraDirection = camera.transform.forward;
+            //                   Quaternion.LookRotation(Vector3.Cross(upAxis,  Vector3.Cross(upAxis, Camera.main.transform.forward)), upAxis);
+            //transform.rotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, Vector3.Cross(Vector3.up, cameraDirection)), Vector3.up);
         }
         
+    }
+
+    void Hop()
+    {
+        if(canJump)
+        {
+            Vector3 hopVector = new Vector3(0.0f, 1.0f, 0.0f);
+            body.AddForce(hopVector * (jumpHeight/3));
+        }
     }
 
     void Jump()
@@ -75,14 +112,18 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    public void TakeDamage(float incomingDamage)
+    public void LoseUnits(int catsLost)
     {
-        health += incomingDamage;
-        if (health < 0.1f)
+        if(armySize - catsLost < 0)
         {
-            Die();
+            armySize = 0;
+        }
+        else
+        {
+            armySize -= catsLost;
         }
     }
+
 
     private void Die()
     {
@@ -92,32 +133,24 @@ public class PlayerController : MonoBehaviour
         // needs to play UI death screen
     }
 
-    public void GainAbility(string abilityName)
-    {
-        switch (abilityName.ToLower())
-        {
-            case "air":
-                air = true;
-                break;
-            case "fire":
-                fire = true;
-                break;
-            case "earth":
-                earth = true;
-                break;
-            case "water":
-                water = true;
-                break;
-        }
-
-    }
-
     // Called when an object collider collides with this objects collider.
     void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.tag == ("Ground"))
         {
             canJump = true;
+        }
+        
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if(other.gameObject.tag == "Enemy")
+        {
+            Debug.Log("Press F to fight");
+            enemyInRange = true;
+
+            sounds.PlaySound("curious");
         }
     }
 
@@ -127,6 +160,20 @@ public class PlayerController : MonoBehaviour
         if (collision.gameObject.tag == ("Ground"))
         {
             canJump = false;
+            // Add bouncy effect
+            //if (bouncyEffect)
+            //{
+            //   StartCoroutine(bouncyEffect.Scale());
+            //}
+            //sounds.PlaySound
+        }
+
+    }
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.gameObject.tag == "Enemy")
+        {
+            enemyInRange = false;
         }
     }
 }
